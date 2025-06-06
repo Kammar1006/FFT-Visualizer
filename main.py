@@ -86,6 +86,7 @@ class SignalApp:
 
         ttk.Button(self.editor_frame, text="Ukryj / Pokaż sygnał", command=self.toggle_visibility).pack(pady=2)
         ttk.Button(self.editor_frame, text="Usuń sygnał", command=self.remove_signal).pack(pady=2)
+        ttk.Button(self.editor_frame, text="Zapisz sygnał", command=self.save_signal).pack(pady=2)
 
         # Ustawienia globalne
         global_frame = ttk.LabelFrame(self.right_frame, text="Ustawienia globalne")
@@ -122,6 +123,10 @@ class SignalApp:
 
     def select_signal(self, index):
         self.selected_index = index
+        self.load_signal_into_form(index)
+        self.editor_frame.pack(fill=tk.X, pady=5)
+
+    def load_signal_into_form(self, index):
         sig = self.signals[index]
         self.signal_type.set(sig.type)
         self.amplitude.set(sig.amplitude)
@@ -130,12 +135,8 @@ class SignalApp:
         self.duration.set(sig.duration)
         self.decay.set(sig.decay)
         self.start_time.set(sig.start_time)
-        self.editor_frame.pack(fill=tk.X, pady=5)
 
-        for var in self.param_vars:
-            var.trace_add("write", self.update_signal)
-
-    def update_signal(self, *_):
+    def save_signal(self):
         if self.selected_index is None:
             return
         try:
@@ -149,7 +150,7 @@ class SignalApp:
             sig.start_time = self.start_time.get()
             self.refresh_signal_buttons()
         except tk.TclError:
-            pass
+            messagebox.showerror("Błąd", "Nieprawidłowe dane.")
 
     def remove_signal(self):
         if self.selected_index is not None:
