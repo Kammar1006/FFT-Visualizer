@@ -7,7 +7,7 @@ from tkinter import ttk, messagebox
 
 class Signal:
     def __init__(self, type_="sin", amplitude=1.0, frequency=50.0, phase=0.0,
-                 duration=1.0, decay=5.0, start_time=0.0, visible=True):
+                 duration=1.0, decay=5.0, start_time=0.0, visible=True, freq_end=100.0):
         self.type = type_
         self.amplitude = amplitude
         self.frequency = frequency
@@ -16,10 +16,15 @@ class Signal:
         self.decay = decay
         self.start_time = start_time
         self.visible = visible
+        self.freq_end = freq_end  # tylko dla czirp
 
     def __str__(self):
         status = "✓" if self.visible else "✗"
+        if self.type == "czirp":
+            return f"{status} czirp, {self.frequency}->{self.freq_end} Hz, {self.start_time}–{self.start_time + self.duration:.2f}s"
         return f"{status} {self.type}, {self.frequency} Hz, {self.start_time}–{self.start_time + self.duration:.2f}s"
+    
+        
 
 class SignalApp:
     def __init__(self, root):
@@ -58,6 +63,7 @@ class SignalApp:
         self.signal_type = tk.StringVar()
         self.amplitude = tk.DoubleVar()
         self.frequency = tk.DoubleVar()
+        
         self.phase = tk.DoubleVar()
         self.duration = tk.DoubleVar()
         self.decay = tk.DoubleVar()
@@ -68,6 +74,9 @@ class SignalApp:
 
         self.param_widgets = []
 
+        self.freq_end = tk.DoubleVar()
+        self.param_vars.append(self.freq_end)
+
         def add_param(label, var, widget_class, **kwargs):
             row = ttk.Frame(self.editor_frame)
             row.pack(fill=tk.X, pady=2)
@@ -76,13 +85,14 @@ class SignalApp:
             widget.pack(side=tk.LEFT, fill=tk.X, expand=True)
             self.param_widgets.append(widget)
 
-        add_param("Typ:", self.signal_type, ttk.Combobox, values=["sin", "gasnacy"])
+        add_param("Typ:", self.signal_type, ttk.Combobox, values=["sin", "gasnacy", "czirp"])
         add_param("Amplituda:", self.amplitude, ttk.Entry)
         add_param("Częstotliwość (Hz):", self.frequency, ttk.Entry)
+        add_param("Częst. końcowa (Hz):", self.freq_end, ttk.Entry)
         add_param("Faza (rad):", self.phase, ttk.Entry)
-        add_param("Czas trwania (s):", self.duration, ttk.Entry)
         add_param("Zanikanie (n):", self.decay, ttk.Entry)
         add_param("Start (s):", self.start_time, ttk.Entry)
+        add_param("Czas trwania (s):", self.duration, ttk.Entry)
 
         ttk.Button(self.editor_frame, text="Ukryj / Pokaż sygnał", command=self.toggle_visibility).pack(pady=2)
         ttk.Button(self.editor_frame, text="Usuń sygnał", command=self.remove_signal).pack(pady=2)
@@ -135,6 +145,8 @@ class SignalApp:
         self.duration.set(sig.duration)
         self.decay.set(sig.decay)
         self.start_time.set(sig.start_time)
+        self.freq_end.set(sig.freq_end)
+
 
     def save_signal(self):
         if self.selected_index is None:
@@ -149,6 +161,8 @@ class SignalApp:
             sig.decay = self.decay.get()
             sig.start_time = self.start_time.get()
             self.refresh_signal_buttons()
+            sig.freq_end = self.freq_end.get()
+
         except tk.TclError:
             messagebox.showerror("Błąd", "Nieprawidłowe dane.")
 
@@ -180,6 +194,12 @@ class SignalApp:
             y = s.amplitude * np.sin(2 * np.pi * s.frequency * t_local + s.phase)
             if s.type == "gasnacy":
                 y *= np.exp(-s.decay * t_local)
+
+            if s.type == "czirp":
+                # linspace z czasem
+                t_local = np.linspace(0, s.duration, int(fs * s.duration), endpoint=False)
+                k = (s.freq_end - s.frequency) / s.duration
+                y = s.amplitude * np.sin(2 * np.pi * (s.frequency * t_local + 0.5 * k * t_local**2) + s.phase)
 
             start_idx = int(s.start_time * fs)
             end_idx = start_idx + len(y)
